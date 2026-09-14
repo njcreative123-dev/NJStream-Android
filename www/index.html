@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>NJStream</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#0a0a0a; overflow:hidden; }
+    #splash {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:9999; transition:opacity 0.5s;
+    }
+    #splash.hide { opacity:0; pointer-events:none; }
+    .logo { font-size:48px; margin-bottom:12px; }
+    .app-name { font-size:28px; font-weight:800; color:#e50914; letter-spacing:2px; }
+    .sub { color:#666; font-size:13px; margin-top:8px; }
+    .loader { width:40px; height:40px; border:3px solid #222; border-top-color:#e50914; border-radius:50%; animation:spin 1s linear infinite; margin-top:20px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    iframe#app {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      border:none; background:#0a0a0a;
+    }
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <div class="logo">🎬</div>
+    <div class="app-name">NJSTREAM</div>
+    <div class="sub">Loading your stream...</div>
+    <div class="loader"></div>
+  </div>
+  <iframe id="app" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
+  <script>
+    const APP_URL = 'https://njsoft-stream.njcreative123.workers.dev';
+    const iframe = document.getElementById('app');
+    const splash = document.getElementById('splash');
+    
+    // Load the app
+    iframe.src = APP_URL;
+    iframe.onload = function() {
+      setTimeout(() => {
+        splash.classList.add('hide');
+        setTimeout(() => splash.remove(), 600);
+      }, 800);
+    };
+    
+    // Fallback: hide splash after 5s even if iframe fails
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => splash.remove(), 600);
+    }, 5000);
+    
+    // Fullscreen on video tap
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName === 'VIDEO' && e.target.requestFullscreen) {
+        e.target.requestFullscreen().catch(() => {});
+      }
+    });
+    
+    // Handle Android back button
+    document.addEventListener('backbutton', (e) => {
+      e.preventDefault();
+      if (iframe.contentWindow && iframe.contentWindow.history) {
+        iframe.contentWindow.history.back();
+      }
+    });
+  </script>
+</body>
+</script>
+</body>
+</html>
