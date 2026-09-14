@@ -2,76 +2,350 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>NJStream</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0a0a0a; overflow:hidden; }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { background:#0a0a0a; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    
+    /* Splash */
     #splash {
       position:fixed; top:0; left:0; width:100%; height:100%;
       background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%);
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      z-index:9999; transition:opacity 0.5s;
+      z-index:9999; transition:opacity 0.6s;
     }
     #splash.hide { opacity:0; pointer-events:none; }
-    .logo { font-size:48px; margin-bottom:12px; }
-    .app-name { font-size:28px; font-weight:800; color:#e50914; letter-spacing:2px; }
-    .sub { color:#666; font-size:13px; margin-top:8px; }
-    .loader { width:40px; height:40px; border:3px solid #222; border-top-color:#e50914; border-radius:50%; animation:spin 1s linear infinite; margin-top:20px; }
+    .s-logo { font-size:52px; margin-bottom:10px; filter:drop-shadow(0 0 20px rgba(229,9,20,0.4)); }
+    .s-name { font-size:32px; font-weight:900; background:linear-gradient(135deg,#e50914,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:3px; }
+    .s-sub { color:#555; font-size:12px; margin-top:6px; letter-spacing:1px; }
+    .s-loader { width:36px; height:36px; border:2px solid #1a1a2e; border-top-color:#e50914; border-radius:50%; animation:spin 0.8s linear infinite; margin-top:18px; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    iframe#app {
+    
+    /* App iframe */
+    #app {
       position:fixed; top:0; left:0; width:100%; height:100%;
       border:none; background:#0a0a0a;
     }
+    
+    /* Native Player Overlay */
+    #njp { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; }
+    #njp video { width:100%; height:100%; object-fit:contain; background:#000; }
+    #njp-bar {
+      position:absolute; bottom:0; left:0; width:100%; padding:8px 16px env(safe-area-inset-bottom,8px);
+      background:linear-gradient(transparent,rgba(0,0,0,0.85)); transition:opacity 0.3s;
+    }
+    #njp-bar.hide { opacity:0; pointer-events:none; }
+    #njp-top {
+      position:absolute; top:0; left:0; width:100%; padding:12px 16px env(safe-area-inset-top,12px);
+      background:linear-gradient(rgba(0,0,0,0.85),transparent); display:flex; align-items:center; gap:12px;
+    }
+    #njp-top .njp-back { font-size:22px; color:#fff; cursor:pointer; padding:4px; }
+    #njp-top .njp-title { color:#fff; font-size:15px; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #njp-top .njp-badge { font-size:10px; background:#e50914; color:#fff; padding:2px 6px; border-radius:4px; font-weight:700; }
+    
+    /* Seek bar */
+    .njp-seek { width:100%; height:4px; background:rgba(255,255,255,0.2); border-radius:2px; position:relative; cursor:pointer; margin:8px 0; }
+    .njp-seek-fill { height:100%; background:#e50914; border-radius:2px; position:relative; transition:width 0.1s; }
+    .njp-seek-fill::after { content:''; position:absolute; right:-6px; top:-4px; width:12px; height:12px; background:#fff; border-radius:50%; box-shadow:0 0 6px rgba(0,0,0,0.5); }
+    .njp-seek-buffered { position:absolute; top:0; left:0; height:100%; background:rgba(255,255,255,0.25); border-radius:2px; }
+    
+    /* Controls row */
+    .njp-row { display:flex; align-items:center; justify-content:space-between; color:#fff; }
+    .njp-btn { background:none; border:none; color:#fff; font-size:20px; padding:6px; cursor:pointer; opacity:0.9; min-width:36px; text-align:center; }
+    .njp-btn:active { opacity:0.5; }
+    .njp-time { font-size:11px; color:rgba(255,255,255,0.7); font-variant-numeric:tabular-nums; }
+    .njp-big { font-size:36px; }
+    
+    /* Gesture hint */
+    .njp-gesture {
+      position:absolute; top:50%; transform:translateY(-50%);
+      background:rgba(0,0,0,0.7); color:#fff; padding:10px 16px; border-radius:8px;
+      font-size:13px; font-weight:600; pointer-events:none; opacity:0; transition:opacity 0.2s;
+    }
+    .njp-gesture.left { left:20px; }
+    .njp-gesture.right { right:20px; }
+    .njp-gesture.show { opacity:1; }
+    
+    /* Download bar */
+    .njp-dlbar {
+      position:absolute; bottom:80px; left:16px; right:16px; background:rgba(0,0,0,0.8);
+      border-radius:8px; padding:10px 14px; display:none; align-items:center; gap:10px; color:#fff; font-size:12px;
+    }
+    .njp-dlbar.show { display:flex; }
+    .njp-dlbar-fill { flex:1; height:3px; background:rgba(255,255,255,0.2); border-radius:2px; overflow:hidden; }
+    .njp-dlbar-fill-inner { height:100%; background:#e50914; transition:width 0.3s; }
   </style>
 </head>
 <body>
+  <!-- Splash -->
   <div id="splash">
-    <div class="logo">🎬</div>
-    <div class="app-name">NJSTREAM</div>
-    <div class="sub">Loading your stream...</div>
-    <div class="loader"></div>
+    <div class="s-logo">🎬</div>
+    <div class="s-name">NJSTREAM</div>
+    <div class="s-sub">Your Stream Hub</div>
+    <div class="s-loader"></div>
   </div>
+  
+  <!-- Website iframe -->
   <iframe id="app" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
+  
+  <!-- Native Player Overlay -->
+  <div id="njp">
+    <video id="njp-vid" playsinline preload="metadata"></video>
+    <div id="njp-top">
+      <div class="njp-back" id="njp-close">←</div>
+      <div class="njp-title" id="njp-title">Playing...</div>
+      <div class="njp-badge">HD</div>
+    </div>
+    <div class="njp-gesture left" id="njp-gest-l"></div>
+    <div class="njp-gesture right" id="njp-gest-r"></div>
+    <div class="njp-dlbar" id="njp-dlbar">
+      <span id="njp-dltext">Downloading...</span>
+      <div class="njp-dlbar-fill"><div class="njp-dlbar-fill-inner" id="njp-dlfill"></div></div>
+    </div>
+    <div id="njp-bar">
+      <div class="njp-seek" id="njp-seek">
+        <div class="njp-seek-buffered" id="njp-buf"></div>
+        <div class="njp-seek-fill" id="njp-fill"></div>
+      </div>
+      <div class="njp-row">
+        <div class="njp-btn njp-big" id="njp-pp">▶</div>
+        <div class="njp-btn" id="njp-rw">⏪</div>
+        <div class="njp-time"><span id="njp-cur">0:00</span> / <span id="njp-dur">0:00</span></div>
+        <div class="njp-btn" id="njp-ff">⏩</div>
+        <div class="njp-btn" id="njp-speed">1x</div>
+        <div class="njp-btn" id="njp-pip">⧉</div>
+        <div class="njp-btn" id="njp-dl">⬇</div>
+        <div class="njp-btn" id="njp-fs">⛶</div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const APP_URL = 'https://njsoft-stream.njcreative123.workers.dev';
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform);
+    
+    // === SPLASH + IFRAME ===
     const iframe = document.getElementById('app');
     const splash = document.getElementById('splash');
-    
-    // Load the app
     iframe.src = APP_URL;
-    iframe.onload = function() {
-      setTimeout(() => {
-        splash.classList.add('hide');
-        setTimeout(() => splash.remove(), 600);
-      }, 800);
+    iframe.onload = () => {
+      setTimeout(() => { splash.classList.add('hide'); setTimeout(() => splash.remove(), 700); }, 600);
+    };
+    setTimeout(() => { splash.classList.add('hide'); setTimeout(() => splash.remove(), 700); }, 6000);
+    
+    // === NATIVE PLAYER ===
+    const njp = document.getElementById('njp');
+    const vid = document.getElementById('njp-vid');
+    const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2, 4];
+    let spdIdx = 2, hideTimer = null, barVisible = true, tapTimer = null, tapCount = 0;
+    
+    function fmt(s) { if (!isFinite(s) || s < 0) return '0:00'; const m = Math.floor(s/60); const ss = Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
+    
+    // Open player
+    window.__njOpenPlayer = function(url, title, sizeLabel) {
+      document.getElementById('njp-title').textContent = title || 'NJStream';
+      vid.src = url;
+      vid.style.display = 'block';
+      njp.style.display = 'block';
+      njp.style.zIndex = '9999';
+      document.body.style.overflow = 'hidden';
+      vid.play().catch(() => {});
+      showBar();
     };
     
-    // Fallback: hide splash after 5s even if iframe fails
-    setTimeout(() => {
-      splash.classList.add('hide');
-      setTimeout(() => splash.remove(), 600);
-    }, 5000);
+    function showBar() {
+      document.getElementById('njp-bar').classList.remove('hide');
+      document.getElementById('njp-top').style.opacity = '1';
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        document.getElementById('njp-bar').classList.add('hide');
+        document.getElementById('njp-top').style.opacity = '0';
+      }, 4000);
+    }
     
-    // Fullscreen on video tap
-    document.addEventListener('click', (e) => {
-      if (e.target.tagName === 'VIDEO' && e.target.requestFullscreen) {
-        e.target.requestFullscreen().catch(() => {});
+    // Close
+    document.getElementById('njp-close').onclick = () => {
+      vid.pause(); vid.src = ''; njp.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    
+    // Play/Pause
+    document.getElementById('njp-pp').onclick = () => {
+      if (vid.paused) { vid.play().catch(() => {}); } else { vid.pause(); }
+      showBar();
+    };
+    
+    // Seek bar
+    vid.ontimeupdate = () => {
+      if (!vid.duration) return;
+      const pct = (vid.currentTime / vid.duration) * 100;
+      document.getElementById('njp-fill').style.width = pct + '%';
+      document.getElementById('njp-cur').textContent = fmt(vid.currentTime);
+      document.getElementById('njp-dur').textContent = fmt(vid.duration);
+    };
+    vid.onprogress = () => {
+      if (vid.buffered.length > 0 && vid.duration) {
+        document.getElementById('njp-buf').style.width = (vid.buffered.end(vid.buffered.length-1) / vid.duration * 100) + '%';
+      }
+    };
+    
+    const seekEl = document.getElementById('njp-seek');
+    function seekTo(e) {
+      const r = seekEl.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      if (vid.duration) vid.currentTime = x * vid.duration;
+    }
+    seekEl.onmousedown = (e) => { seekTo(e); const mv = (ev) => seekTo(ev); const up = () => { document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }; document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); };
+    seekEl.ontouchstart = (e) => seekTo(e.touches[0]);
+    seekEl.ontouchmove = (e) => { e.preventDefault(); seekTo(e.touches[0]); };
+    
+    // Rewind / Forward
+    document.getElementById('njp-rw').onclick = () => { vid.currentTime = Math.max(0, vid.currentTime - 10); showBar(); };
+    document.getElementById('njp-ff').onclick = () => { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); showBar(); };
+    
+    // Speed
+    document.getElementById('njp-speed').onclick = () => {
+      spdIdx = (spdIdx + 1) % speeds.length;
+      vid.playbackRate = speeds[spdIdx];
+      document.getElementById('njp-speed').textContent = speeds[spdIdx] + 'x';
+      document.getElementById('njp-speed').style.color = spdIdx !== 2 ? '#e50914' : '#fff';
+      showBar();
+    };
+    
+    // PiP
+    document.getElementById('njp-pip').onclick = async () => {
+      try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (vid) await vid.requestPictureInPicture();
+      } catch(e) {}
+    };
+    
+    // Fullscreen
+    document.getElementById('njp-fs').onclick = () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen();
+    };
+    
+    // Download
+    document.getElementById('njp-dl').onclick = async () => {
+      const url = vid.src;
+      if (!url) return;
+      if (isNative) {
+        try {
+          const { Filesystem } = Capacitor.Plugins;
+          const dlBar = document.getElementById('njp-dlbar');
+          const dlText = document.getElementById('njp-dltext');
+          const dlFill = document.getElementById('njp-dlfill');
+          dlBar.classList.add('show');
+          dlText.textContent = 'Downloading...';
+          dlFill.style.width = '0%';
+          // Use WebView download
+          window.open(url + (url.includes('?') ? '&' : '?') + 'download=1', '_system');
+          setTimeout(() => { dlBar.classList.remove('show'); dlText.textContent = 'Download started!'; }, 3000);
+        } catch(e) { alert('Download failed: ' + e.message); }
+      } else {
+        window.open(url + (url.includes('?') ? '&' : '?') + 'download=1', '_blank');
+      }
+    };
+    
+    // Gesture controls on video
+    let touchStartY = 0, touchStartX = 0, gestureSide = '';
+    vid.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      gestureSide = t.clientX < window.innerWidth / 2 ? 'left' : 'right';
+    }, { passive: true });
+    
+    vid.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      const dy = touchStartY - t.clientY;
+      const dx = t.clientX - touchStartX;
+      const gest = document.getElementById(gestureSide === 'left' ? 'njp-gest-l' : 'njp-gest-r');
+      if (Math.abs(dy) > 30) {
+        gest.textContent = gestureSide === 'left' ? '🔆 ' + Math.round(50 + dy) + '%' : '🔊 ' + Math.round(50 + dy) + '%';
+        gest.classList.add('show');
+      }
+      if (Math.abs(dx) > 50) {
+        gest.textContent = dx > 0 ? '⏩ +' + Math.round(dx/5) + 's' : '⏪ ' + Math.round(dx/5) + 's';
+        gest.classList.add('show');
+      }
+    }, { passive: true });
+    
+    vid.addEventListener('touchend', (e) => {
+      document.getElementById('njp-gest-l').classList.remove('show');
+      document.getElementById('njp-gest-r').classList.remove('show');
+      const dx = (e.changedTouches[0].clientX) - touchStartX;
+      if (Math.abs(dx) > 80) {
+        vid.currentTime = Math.max(0, Math.min(vid.duration || 0, vid.currentTime + (dx > 0 ? 10 : -10)));
+      }
+      showBar();
+    }, { passive: true });
+    
+    // Double-tap seek
+    vid.addEventListener('click', (e) => {
+      tapCount++;
+      if (tapCount === 1) {
+        tapTimer = setTimeout(() => { tapCount = 0; showBar(); }, 300);
+      } else {
+        clearTimeout(tapTimer); tapCount = 0;
+        const x = e.clientX < window.innerWidth / 2 ? -10 : 10;
+        vid.currentTime = Math.max(0, Math.min(vid.duration || 0, vid.currentTime + x));
+        const gest = document.getElementById(x > 0 ? 'njp-gest-r' : 'njp-gest-l');
+        gest.textContent = (x > 0 ? '⏩ +10s' : '⏪ -10s');
+        gest.classList.add('show');
+        setTimeout(() => gest.classList.remove('show'), 500);
       }
     });
     
-    // Handle Android back button
+    vid.onplaying = showBar;
+    vid.onpause = showBar;
+    
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (njp.style.display === 'none') return;
+      if (e.code === 'Space') { e.preventDefault(); document.getElementById('njp-pp').click(); }
+      if (e.code === 'ArrowLeft') vid.currentTime = Math.max(0, vid.currentTime - 10);
+      if (e.code === 'ArrowRight') vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10);
+      if (e.code === 'ArrowUp') { vid.volume = Math.min(1, vid.volume + 0.1); showBar(); }
+      if (e.code === 'ArrowDown') { vid.volume = Math.max(0, vid.volume - 0.1); showBar(); }
+      if (e.code === 'KeyF') document.getElementById('njp-fs').click();
+      if (e.code === 'KeyP') document.getElementById('njp-pip').click();
+      showBar();
+    });
+    
+    // === MESSAGE BRIDGE: website → native player ===
+    window.addEventListener('message', (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === 'njplay' && d.url) {
+          window.__njOpenPlayer(d.url, d.title, d.sizeLabel);
+        }
+        if (d.type === 'njdownload' && d.url) {
+          document.getElementById('njp-dl').click();
+        }
+      } catch(ex) {}
+    });
+    
+    // Post message to iframe when native player opens
+    function postToIframe(msg) {
+      try { iframe.contentWindow.postMessage(JSON.stringify(msg), '*'); } catch(e) {}
+    }
+    
+    // === ANDROID BACK BUTTON ===
     document.addEventListener('backbutton', (e) => {
       e.preventDefault();
-      if (iframe.contentWindow && iframe.contentWindow.history) {
+      if (njp.style.display !== 'none') {
+        vid.pause(); vid.src = ''; njp.style.display = 'none';
+        document.body.style.overflow = '';
+      } else if (iframe.contentWindow && iframe.contentWindow.history) {
         iframe.contentWindow.history.back();
       }
     });
   </script>
-</body>
-</script>
 </body>
 </html>

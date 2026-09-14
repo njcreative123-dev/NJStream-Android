@@ -1,5 +1,15 @@
 {
   "appId": "com.njstream.app",
   "appName": "NJStream",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "CapacitorVideoPlayer": {
+      "backgroundColor": "#000000",
+      "showControls": false
+    }
+  }
 }
